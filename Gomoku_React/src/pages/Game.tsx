@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps */
-import { useContext, useReducer, useState, useEffect } from 'react'
+import { useContext, useReducer, useState, useEffect, useMemo } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { GameContext, SquareContext, UserContext } from '../context'
 import style from './Game.module.css'
@@ -39,7 +39,8 @@ export default function Game() {
     const [playerTwoState, dispatch2] = useReducer(gameReducer, [])
     const { id = "" } = useParams()
     const { promiseInProgress } = usePromiseTracker();
-
+    const ws = useMemo(() => new WebSocket('ws://localhost:8080'), [])
+    const [gameMoves, setGameMoves] = useState<Number[][]>([[]])
     const resetGame = async () => {
         if (game?.gameOver) {
             return navigate(`/`)
@@ -98,11 +99,32 @@ export default function Game() {
             console.log((err as Error).message)
             navigate('/')
         }
-
     }
 
     useEffect(() => {
         trackPromise(gameMove())
+        if (!user) return
+        ws.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data)
+                if (
+                    typeof data === 'object' &&
+                    data.undatedBy !== user._id &&
+                    'gameArray' in data
+                ) {
+                    setGameMoves(data.gameArray)
+                    //notify('Seat map is updated')
+                }
+            } catch (e) {
+                console.log(e)
+            }
+        }
+        return () => {
+            if (ws.readyState === WebSocket.OPEN) {
+                console.log('closing websocket connection')
+                ws.close()
+            }
+        }
     }, [playerOneState, playerTwoState])
 
     useEffect(() => {

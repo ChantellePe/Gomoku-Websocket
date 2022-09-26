@@ -3,7 +3,8 @@ import validateSchema from '../middleware/validateSchema';
 import { deleteGameSchema, getGameSchema } from '../schema/game.schema';
 import { deleteGame, getGamesByFilter, getGameById } from '../service/games.service'
 import { deserializeUser } from "../middleware/deserializeUser";
-
+import WebSocket from 'ws';
+import { wss } from '../../websocket';
 
 const gamesHandler = express.Router();
 gamesHandler.use(deserializeUser);
@@ -43,6 +44,17 @@ gamesHandler.delete("/:id", validateSchema(deleteGameSchema), async (req: Reques
         const id = req.params.id;
         const userId = req.userId;
         await deleteGame(id, userId);
+        wss.clients.forEach((client) => {
+            if (client.readyState === WebSocket.OPEN) {
+                client.send(
+                    JSON.stringify({
+                        updateBy: userId,
+                        gameId: id,
+                    })
+                )
+            }
+
+        })
         return res.sendStatus(200);
     } catch (err) {
         return res.status(500).send(err);

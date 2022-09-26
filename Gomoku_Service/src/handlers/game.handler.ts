@@ -4,6 +4,8 @@ import { createGameSchema, updateGameSchema, winners } from '../schema/game.sche
 import { createGame, getGameByFilter, updateGame, deleteGamesByFilter } from "../service/games.service";
 import mongoose from "mongoose";
 import { deserializeUser } from "../middleware/deserializeUser";
+import WebSocket from 'ws';
+import { wss } from '../../websocket';
 
 const gameHandler = express.Router();
 gameHandler.use(deserializeUser);
@@ -13,6 +15,17 @@ gameHandler.post("/", validateSchema(createGameSchema), async (req: Request, res
     const userId = req.userId;
     const game = req.body;
     const newGame = await createGame({ userId, ...game });
+    // wss.clients.forEach((client) => {
+    //     if (client.readyState === WebSocket.OPEN) {
+    //         client.send(
+    //             JSON.stringify({
+    //                 updateBy: userId,
+    //                 gameOver: newGame.gameOver,
+    //                 currentPlayer: newGame.currentPlayer,
+    //             })
+    //         )
+    //     }
+    // })
     if (!newGame) return res.status(500)
     return res.status(200).send(newGame)
 })
@@ -70,7 +83,23 @@ gameHandler.put("/:id", validateSchema(updateGameSchema), async (req: Request, r
     }
     const newGame = await updateGame(id, userId, { ...game });
     if (!newGame) return res.sendStatus(404)
-    return res.status(200).json(newGame)
+    wss.clients.forEach((client) => {
+        if (client.readyState === WebSocket.OPEN) {
+            client.send(
+                JSON.stringify({
+                    updateBy: userId,
+                    gameOver: newGame.gameOver,
+                    currentPlayer: newGame.currentPlayer,
+                    gameArray: newGame.gameArray,
+                    winner: newGame.winner,
+                    gameArray_PlayerOne: newGame.gameArray_PlayerOne,
+                    gameArray_PlayerTwo: newGame.gameArray_PlayerTwo,
+                })
+            )
+        }
+    })
+
+    return res.status(200).send(newGame)
 })
 
 //Game helper function

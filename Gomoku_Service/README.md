@@ -5,7 +5,7 @@ A complete front end and back end of the game Gomoku
 
 In the project terminal, you can run:
 
-### `npm run dev`
+### `npm run start`
 
 PORT: http://localhost:8080/
 
